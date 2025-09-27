@@ -139,8 +139,11 @@
     }
   }
 
-  &:hover > .bg-layers > .bg-layer-2 {
-    background-color: var(--dock-item-hover-color);
+  /* Only apply hover effects on devices that can actually hover (not touch devices) */
+  @media (hover: hover) and (pointer: fine) {
+    &:hover > .bg-layers > .bg-layer-2 {
+      background-color: var(--dock-item-hover-color);
+    }
   }
 
   &:active {

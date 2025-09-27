@@ -145,8 +145,11 @@ body {
     background-color: var(--color-gray-100);
   }
 
-  &:hover {
-    background-color: var(--color-gray-200);
+  /* Only apply hover effects on devices that can actually hover (not touch devices) */
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background-color: var(--color-gray-200);
+    }
   }
 
   &:focus,
