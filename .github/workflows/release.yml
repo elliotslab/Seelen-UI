@@ -78,17 +78,71 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+      - name: Cache MSIX Hero
+        if: matrix.platform == 'windows-2025'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\Program Files\MSIX Hero
+            C:\Program Files (x86)\MSIX Hero
+          key: msix-hero-${{ runner.os }}
+          restore-keys: |
+            msix-hero-
+
       - name: Install MSIX dependencies
         if: matrix.platform == 'windows-2025'
         shell: pwsh
         run: |
-          # Install in parallel to save time
-          $jobs = @(
-            { winget install --id Microsoft.DotNet.AspNetCore.8 --accept-package-agreements --accept-source-agreements --force --silent },
-            { winget install --id Microsoft.DotNet.DesktopRuntime.8 --accept-package-agreements --accept-source-agreements --force --silent },
-            { winget install --id MarcinOtorowski.MSIXHero --accept-package-agreements --accept-source-agreements --force --silent }
-          )
-          $jobs | ForEach-Object { Start-Job -ScriptBlock $_ } | Wait-Job | Receive-Job
+          # Install dependencies with error handling and verification
+          Write-Host "Installing .NET dependencies..."
+          try {
+            winget install --id Microsoft.DotNet.AspNetCore.8 --accept-package-agreements --accept-source-agreements --force --silent
+            winget install --id Microsoft.DotNet.DesktopRuntime.8 --accept-package-agreements --accept-source-agreements --force --silent
+          } catch {
+            Write-Warning "Failed to install .NET dependencies: $_"
+          }
+          
+          Write-Host "Installing MSIX Hero..."
+          try {
+            winget install --id MarcinOtorowski.MSIXHero --accept-package-agreements --accept-source-agreements --force --silent
+          } catch {
+            Write-Warning "Failed to install MSIX Hero via winget: $_"
+            Write-Host "Attempting alternative installation..."
+            # Fallback: try installing via chocolatey if available
+            if (Get-Command choco -ErrorAction SilentlyContinue) {
+              choco install msixhero -y
+            }
+          }
+          
+          # Verify installation and add to PATH if needed
+          Write-Host "Verifying MSIX Hero installation..."
+          $msixHeroPath = Get-Command msixHeroCli -ErrorAction SilentlyContinue
+          if (-not $msixHeroPath) {
+            # Try to find MSIX Hero in common installation paths
+            $possiblePaths = @(
+              "${env:ProgramFiles}\MSIX Hero\msixHeroCli.exe",
+              "${env:ProgramFiles(x86)}\MSIX Hero\msixHeroCli.exe",
+              "${env:LOCALAPPDATA}\Microsoft\WindowsApps\msixHeroCli.exe"
+            )
+            
+            foreach ($path in $possiblePaths) {
+              if (Test-Path $path) {
+                $dir = Split-Path $path -Parent
+                $env:PATH = "$dir;$env:PATH"
+                Write-Host "Added MSIX Hero to PATH: $dir"
+                break
+              }
+            }
+          }
+          
+          # Final verification
+          if (Get-Command msixHeroCli -ErrorAction SilentlyContinue) {
+            Write-Host "✅ MSIX Hero CLI is available"
+            msixHeroCli --version
+          } else {
+            Write-Error "❌ MSIX Hero CLI not found after installation attempts"
+            exit 1
+          }
 
       - uses: tauri-apps/tauri-action@v0.5.16
         env:
@@ -101,7 +155,26 @@ jobs:
 
       - name: Bundle MSIX
         if: matrix.platform == 'windows-2025'
-        run: npx tsx scripts/bundle.msix.ts
+        shell: pwsh
+        run: |
+          Write-Host "Verifying MSIX Hero CLI before bundling..."
+          if (-not (Get-Command msixHeroCli -ErrorAction SilentlyContinue)) {
+            Write-Error "❌ MSIX Hero CLI not found. Cannot create MSIX bundle."
+            exit 1
+          }
+          
+          Write-Host "✅ MSIX Hero CLI found. Creating MSIX bundle..."
+          try {
+            npx tsx scripts/bundle.msix.ts
+            Write-Host "✅ MSIX bundle created successfully"
+          } catch {
+            Write-Error "❌ Failed to create MSIX bundle: $_"
+            Write-Host "MSIX Hero CLI version:"
+            msixHeroCli --version
+            Write-Host "Available files in target/release:"
+            Get-ChildItem target/release -Recurse | Select-Object Name, FullName
+            throw
+          }
 
       - name: Upload artifacts
         id: artifact-upload-step
