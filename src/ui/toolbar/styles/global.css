@@ -76,6 +76,11 @@ body {
   .ft-bar.bottom & {
     bottom: calc(var(--config-height) + 4px) !important; /* Override inline style */
   }
+
+  /* Disable tooltips on touch devices to prevent interference with click events */
+  @media (hover: none) and (pointer: coarse) {
+    display: none !important;
+  }
 }
 
 .ft-bar-group {
