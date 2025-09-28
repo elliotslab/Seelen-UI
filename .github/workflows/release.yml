@@ -101,7 +101,7 @@ jobs:
           } catch {
             Write-Warning "Failed to install .NET dependencies: $_"
           }
-          
+
           Write-Host "Installing MSIX Hero..."
           try {
             winget install --id MarcinOtorowski.MSIXHero --accept-package-agreements --accept-source-agreements --force --silent
@@ -113,7 +113,7 @@ jobs:
               choco install msixhero -y
             }
           }
-          
+
           # Verify installation and add to PATH if needed
           Write-Host "Verifying MSIX Hero installation..."
           $msixHeroPath = Get-Command msixHeroCli -ErrorAction SilentlyContinue
@@ -124,7 +124,7 @@ jobs:
               "${env:ProgramFiles(x86)}\MSIX Hero\msixHeroCli.exe",
               "${env:LOCALAPPDATA}\Microsoft\WindowsApps\msixHeroCli.exe"
             )
-            
+
             foreach ($path in $possiblePaths) {
               if (Test-Path $path) {
                 $dir = Split-Path $path -Parent
@@ -134,7 +134,7 @@ jobs:
               }
             }
           }
-          
+
           # Final verification
           if (Get-Command msixHeroCli -ErrorAction SilentlyContinue) {
             Write-Host "✅ MSIX Hero CLI is available"
@@ -162,7 +162,7 @@ jobs:
             Write-Error "❌ MSIX Hero CLI not found. Cannot create MSIX bundle."
             exit 1
           }
-          
+
           Write-Host "✅ MSIX Hero CLI found. Creating MSIX bundle..."
           try {
             npx tsx scripts/bundle.msix.ts
